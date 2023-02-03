@@ -17,6 +17,9 @@
 			<HintPath>..\..\..\..\Games\SteamLibrary\steamapps\common\Pathfinder Second Adventure\Wrath_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
+		<Reference Include="Newtonsoft.Json">
+		  <HintPath>..\Newtonsoft.Json.dll</HintPath>
+		</Reference>
 		<Reference Include="OpenCC.NET">
 		  <HintPath>..\OpenCC.NET.dll</HintPath>
 		</Reference>
