@@ -1,0 +1,8 @@
+﻿{
+  "Id": "RealTimeCn2Zh",
+  "DisplayName": "RealTimeCn2Zh",
+  "Author": "HsinYuChen",
+  "Version": "1.0.0",
+  "AssemblyName": "RealTimeCn2Zh.dll",
+  "EntryMethod": "RealTimeCn2Zh.Main.Load"
+}
