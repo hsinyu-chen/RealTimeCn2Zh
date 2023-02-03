@@ -19,7 +19,6 @@ namespace RealTimeCn2Zh
     [HarmonyPatch(typeof(PatchLocalizedString))]
     public class PatchLocalizedString
     {
-        readonly static ConcurrentDictionary<string, string> _cache = new ConcurrentDictionary<string, string>();
         readonly static OpenCC.NET.OpenChineseConverter converter = new OpenCC.NET.OpenChineseConverter("Mods\\RealTimeCn2Zh\\opencc-dictionary.json");
         [HarmonyPostfix, HarmonyPatch(typeof(LocalizedString), "LoadString")]
         public static void PatchLoadString(Locale locale, ref string __result)
@@ -28,7 +27,10 @@ namespace RealTimeCn2Zh
             {
                 try
                 {
-                    __result = _cache.GetOrAdd(__result, key => converter.ToTraditionalFromSimplified(key));
+                    if (!string.IsNullOrWhiteSpace(__result))
+                    {
+                        __result = converter.ToTraditionalFromSimplified(__result);
+                    }
                 }
                 catch (Exception ex)
                 {
