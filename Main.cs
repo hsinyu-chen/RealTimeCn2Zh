@@ -11,6 +11,10 @@ using MiniJSON;
 using System.Text;
 using System.Collections.Generic;
 using MonoMod.Utils;
+using UnityEngine;
+using System.Linq;
+using System.Diagnostics;
+using System.Security.Cryptography;
 
 namespace RealTimeCn2Zh
 {
@@ -19,67 +23,57 @@ namespace RealTimeCn2Zh
         public static void Load(UnityModManager.ModEntry modEntry)
         {
             PatchLocalizedString.Path = modEntry.Path;
+            PatchLocalizedString.GameVersion = modEntry.GameVersion.ToString();
             new Harmony("RealTimeCn2Zh").PatchAll();
         }
 
     }
+
     [HarmonyPatch(typeof(PatchLocalizedString))]
     public class PatchLocalizedString
     {
-        readonly static ConcurrentDictionary<string, string> _cache = new ConcurrentDictionary<string, string>();
-        static OpenCC.NET.OpenChineseConverter converter;
         public static string Path { get; internal set; }
-        static Task saving;
-        [HarmonyPostfix, HarmonyPatch(typeof(LocalizedString), "LoadString")]
-        public static void PatchLoadString(Locale locale, ref string __result)
+        public static string GameVersion { get; internal set; }
+        [HarmonyPrefix, HarmonyPatch(typeof(LocalizationManager), "LoadPack", new Type[] { typeof(string), typeof(Locale) })]
+        public static void PatchLoadPack(ref string packPath, Locale locale)
         {
             if (locale == Locale.zhCN)
             {
-                if (converter == null)
-                {
-                    lock (_cache)
-                    {
-                        if (converter == null)
-                        {
-                            converter = new OpenCC.NET.OpenChineseConverter(System.IO.Path.Combine(Path, "opencc-dictionary.json"));
-                            var cache = System.IO.Path.Combine(Path, "cache.json");
-                            if (File.Exists(cache))
-                            {
-                                var json = File.ReadAllText(cache, Encoding.UTF8);
-                                var data = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
-                                _cache.AddRange<string, string>(data);
-                            }
-                        }
-                    }
-                }
+                var sb = new StringBuilder();
                 try
                 {
-                    if (!string.IsNullOrWhiteSpace(__result))
+                    string hash;
+                    using (var sha1 = SHA1.Create())
+                    using (var fs = new FileStream(packPath, FileMode.Open, FileAccess.Read, FileShare.Read))
                     {
-                        __result = _cache.GetOrAdd(__result, key =>
-                        {
-                            if (saving == null)
-                            {
-                                lock (_cache)
-                                {
-                                    if (saving == null)
-                                    {
-                                        saving = Task.Factory.StartNew(async () =>
-                                        {
-                                            await Task.Delay(3000);
-                                            File.WriteAllText(System.IO.Path.Combine(Path, "cache.json"), Newtonsoft.Json.JsonConvert.SerializeObject(_cache));
-                                            saving = null;
-                                        }, TaskCreationOptions.LongRunning);
-                                    }
-                                }
-                            }
-                            return converter.ToTraditionalFromSimplified(key);
-                        });
+                        hash = BitConverter.ToString(sha1.ComputeHash(fs)).Replace("-", "");
                     }
+                    var folder = System.IO.Path.GetDirectoryName(packPath);
+                    var file = System.IO.Path.Combine(folder, $"zhTw.{hash}.json");
+                    if (!File.Exists(file))
+                    {
+                        sb.AppendLine($"packPath:{packPath}");
+                        sb.AppendLine($"file:{file}");
+                        sb.AppendLine($"opencc:{System.IO.Path.Combine(Path, "opencc")}");
+                        var p = new Process()
+                        {
+                            StartInfo = new ProcessStartInfo
+                            {
+                                WorkingDirectory = System.IO.Path.Combine(Path, "opencc"),
+                                FileName = "opencc.exe",
+                                Arguments = $"-i \"{packPath}\" -o \"{file}\" -c .\\config\\s2t.json",
+                                WindowStyle = ProcessWindowStyle.Hidden
+                            }
+                        };
+                        p.Start();
+                        p.WaitForExit();
+                    }
+                    packPath = file;
                 }
                 catch (Exception ex)
                 {
-                    File.AppendAllText("RealTimeCn2Zh.log", ex.ToString());
+                    sb.AppendLine(ex.ToString());
+                    File.WriteAllText("error.log", sb.ToString());
                 }
             }
         }
